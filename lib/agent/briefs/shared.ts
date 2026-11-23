@@ -1,0 +1,15 @@
+/**
+ * The build steps every style shares, interpolated into each brief's <build>, so one edit updates all four.
+ */
+export const SHARED_BUILD = `- Canvas first: set the aspect ratio before placing anything.
+- Script first: if Project.script is empty, write it to the script contract (get_guide topic "script"): one line per caption, 3 to 8 words, present tense, one fact per line, every line names a thing that can be drawn. Show it, and save_script once the user agrees. A real product's or person's facts, names and numbers are never invented; a made-up story may invent freely.
+- Storyboard before scenes: group the lines into shots (place, the lines it carries, its cards and labels, its join) and save_storyboard. Show it. A wrong storyboard costs one edit; a wrong video costs a rebuild.
+- Voice BEFORE scenes: the voice sets the timing, the picture follows it. After the storyboard is approved, generate one Fish Audio clip per script line, keep each locally, and set each line's duration to its clip's length plus a breath (about 0.25 s, 0.5 s at the end of a shot). Only then build scenes on those times. One long clip for the whole script drifts against the captions. Generate the lines one after another (never more than 3 at once, or Fish answers 429), with the same voice and the same settings on every line so the tone stays steady. Join each scene's line clips locally into one file with the breaths, and upload one file per scene (get_upload_target), then save_generated_audio with each line's times. It costs the same as one long clip: Fish bills by the text, not the number of calls; never generate the same line twice. If fish-audio tools are missing, stop and tell the user: claude mcp add --transport http fish-audio https://api.fish.audio/mcp, then sign in with /mcp.
+- Sound is the voice first. A story sound only when the script names it (a phone rings, a knock at the door, a bat screeches, a pump dies): one recorded sound, on the frame it happens, quiet (0.2 to 0.4), never louder than the voice. Find it on Openverse (https://api.openverse.org/v1/audio/?q=<words>&license_type=commercial, no key): CC0 first, CC-BY with its credit saved, never NC or ND; trim it, then add it. Never generic whooshes, risers, hits or pops on cuts. Music only if the user asks: a real recorded track (Openverse or Pixabay Music, brought in, never hotlinked, never generated), about 0.045 under the voice with a 2 s fade in and 3 s fade out.
+- Anything that appears twice (the hero, a room, a card, the system shot) is a saved element (save_element), placed by id with params, so it is identical every time.
+- render(scene, t) is pure: everything is computed from t. No CSS animation, no timers, no state between frames.
+- After every scene: render_frames, read every check, fix, render again. Two passes minimum; never finish on the first render.`
+
+/** Ends every brief, so none stands apart from agent_md. */
+export const BRIEF_FOOTER =
+  "agent_md holds the loop, the no-slop rules and the checks, and wins where it and a brief differ; this brief adds only what this style needs."
