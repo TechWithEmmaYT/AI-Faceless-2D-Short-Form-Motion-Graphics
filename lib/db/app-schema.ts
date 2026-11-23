@@ -48,6 +48,8 @@ export const project = pgTable(
     posterUrl: text("poster_url"),
     /** The project version the poster shows; the studio re-captures it when the version moves on. */
     posterVersion: integer("poster_version"),
+    /** The frame the user picked for the poster (video seconds); null = the default, 1 s in. */
+    posterTimeSec: real("poster_time_sec"),
     durationSec: real("duration_sec").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

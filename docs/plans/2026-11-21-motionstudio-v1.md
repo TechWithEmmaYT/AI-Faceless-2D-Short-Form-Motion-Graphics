@@ -446,6 +446,11 @@ Verified: an empty demo scene renders 0 non-black pixels.
     - The tile shows the style art first and fades the poster in once it arrives.
     - `images.remotePatterns` is still there as a fallback, limited to `.../image/upload/*/motionstudio/**` with no query strings.
   - **When it's taken:** independent of playback. The hidden capture host renders t = 1 s of the full video, whatever the preview is doing.
+  - **"Use this frame as poster"** (image button in the player bar):
+    - It takes the frame on screen now, in full-video seconds, so scene view adds its offset.
+    - It stores that time in `project.posterTimeSec` (migration `0009`) through `?t=` on the poster route.
+    - Later automatic re-captures use that time, kept inside the video if the video gets shorter, instead of 1 s.
+    - Verified: about 3 s of play, then a click, saved the frame at 3.6 s and showed "Poster set to the frame at 00:03".
 - **Guide:** `agent_md` step 10 tells the agent that the user exports from the studio (guide `2026-11-23.1`).
 - **Agent workspace (guide `2026-11-23.2`):** each project has a folder on the user's machine, `~/motionstudio/<projectId>/`.
   - **Layout** (`lib/agent/guide/workspace.ts`): `progress.md`, `vo/`, `sound/`, `music/`, `scenes/` and `elements/`.

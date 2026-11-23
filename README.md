@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Faceless 2D Short-Form Motion Graphics — with Claude Code & Fish Audio
 
-## Getting Started
+> This code, whether in parts or whole, is licensed for commercial use **only with a license**. It is **free for personal use**.
+> 👉 Get a license (link coming soon) and [learn more here](./TECHWITHEMMA-LICENSE.md)
 
-First, run the development server:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 💛 Sponsored by Fish Audio
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Every voiceover in this project is generated with **Fish Audio** through its MCP server, right inside Claude Code.
+👉 [Try Fish Audio](https://fish.audio)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ❤️ Support the Channel
 
-## Learn More
+Love this project? Here's how you can support:
+* [Buy Me a Coffee](https://buymeacoffee.com/techwithemmaofficial)
+* Star this repo
+* [Subscribe on YouTube](https://tinyurl.com/subcribe-to-techwithEmma)
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🗝️ Key Features: 👇
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+* 🔐 Authentication (Better Auth)
+* 🔑 API Keys
+* 📱 9:16 Shorts, TikTok & Reels
+* 🎬 4 Motion Styles (Story Scene, Presenter, System & Documentary)
+* 📝 Script & Storyboard
+* 🎙️ Fish Audio Voiceovers
+* 🎞️ Live Canvas Preview
+* 💻 Code Layers & Elements
+* 🛡️ Sandboxed Render Host
+* 🤖 Claude Code MCP Server
+* 👀 Claude Sees Its Own Frames
+* 🔴 Live Agent Activity
+* 🔊 Story Sounds & Music
+* 📤 MP4 Export
+* ☁️ Media on Cloudinary
+* 🌐 Built with Next.js, TypeScript, Neon & Drizzle
 
-## Deploy on Vercel
+## How to Use This Project
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Step 1: Watch the Complete Full Course on YouTube
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Learn how it all works: the canvas renderer, code layers, the MCP server for Claude Code, Fish Audio voiceovers, render_frames, export and more.
+> 👉 Watch the Course (link coming soon)
+
+### Step 2: Get the Resources
+
+* [Prompts](https://docs.google.com/document/d/1dI0cR1CK4zFGtQcWZh61zE_oZLwl0Q5ntPMSR5iWOeo/edit?usp=sharing)
+* Designs (link coming soon)
+* Starter Kit — briefs & examples (link coming soon)
+
+
+## License Information
+
+A paid license is required for commercial use. To obtain a commercial license, see the link above (coming soon).
+
+For more details about the license, please refer to [TECHWITHEMMA-LICENSE.md](./TECHWITHEMMA-LICENSE.md).
+
+---
+
+# Subscribe for More Projects
+
+If you find this helpful, support by subscribing and sharing:
+
+🔗 [https://tinyurl.com/subcribe-to-techwithEmma](https://tinyurl.com/subcribe-to-techwithEmma)

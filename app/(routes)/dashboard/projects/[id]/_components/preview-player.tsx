@@ -1,16 +1,18 @@
 "use client";
 
-import { MaximizeIcon, MinimizeIcon, PauseIcon, PlayIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
+import { CheckIcon, ImageIcon, MaximizeIcon, MinimizeIcon, PauseIcon, PlayIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 
 import { RenderHostFrame, hostSceneData, type RenderHostHandle } from "@/components/studio/render-host";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SavedElementData, SoundData, VoiceClipData } from "@/lib/api";
 import { formatTimecode, sceneAt, totalDuration } from "@/lib/render/timeline";
 import { useStudioAudio } from "@/lib/studio/use-studio-audio";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { FPS, type Scene } from "@/lib/render/types";
 
 export type PlayerHandle = {
@@ -35,6 +37,7 @@ export function PreviewPlayer({
   videoDuration,
   onSceneChange,
   onLayerErrors,
+  onUseAsPoster,
   banner,
   ref,
 }: {
@@ -49,6 +52,8 @@ export function PreviewPlayer({
   /** The full video's length (for the music fade-out). Defaults to what's shown. */
   videoDuration?: number;
   onLayerErrors?: (errors: { layer: string; message: string }[]) => void;
+  /** "Use this frame as poster": called with the frame's time in the FULL video (scene view adds its offset). */
+  onUseAsPoster?: (videoT: number) => Promise<void>;
   /** Shown above the canvas (e.g. the scene-view chip). */
   banner?: ReactNode;
   onSceneChange?: (sceneId: string | null) => void;
@@ -143,6 +148,22 @@ export function PreviewPlayer({
 
   const empty = scenes.length === 0;
 
+  const [poster, setPoster] = useState<"idle" | "saving" | "saved">("idle");
+  async function takePoster() {
+    if (!onUseAsPoster || poster === "saving") return;
+    setPlaying(false);
+    setPoster("saving");
+    try {
+      await onUseAsPoster(timeOffset + t);
+      setPoster("saved");
+      toast.success(`Poster set to the frame at ${formatTimecode(timeOffset + t)}.`);
+      setTimeout(() => setPoster("idle"), 1800);
+    } catch (error) {
+      setPoster("idle");
+      toast.error(error instanceof Error ? error.message : "Couldn't set the poster.");
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col items-center gap-4">
       {banner}
@@ -190,6 +211,18 @@ export function PreviewPlayer({
           }}
           aria-label="Seek"
         />
+        {onUseAsPoster ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={takePoster} disabled={empty || poster === "saving"} aria-label="Use this frame as poster" />
+              }
+            >
+              {poster === "saving" ? <Spinner /> : poster === "saved" ? <CheckIcon /> : <ImageIcon />}
+            </TooltipTrigger>
+            <TooltipContent>Use this frame as poster</TooltipContent>
+          </Tooltip>
+        ) : null}
         <Tooltip>
           <TooltipTrigger
             render={<Button variant="ghost" size="icon" className="rounded-full" onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"} />}

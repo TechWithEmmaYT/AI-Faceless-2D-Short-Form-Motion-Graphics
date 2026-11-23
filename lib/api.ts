@@ -33,6 +33,8 @@ export type ProjectDetail = ProjectSummary & {
   version: number;
   /** The version the poster was captured at (null = none yet); the studio refreshes it when it lags. */
   posterVersion: number | null;
+  /** The frame the user picked for the poster (video seconds); null = the default, 1 s in. */
+  posterTimeSec: number | null;
   /** What Claude Code last did through MCP, and when (ISO) — the "Agent is working" pill. */
   agentActivity: string | null;
   agentActivityAt: string | null;
@@ -161,9 +163,11 @@ export const completeRenderJobFn = ({ jobId, outcome }: { jobId: string; outcome
   request<{ ok: true }>(`/render-requests/${encodeURIComponent(jobId)}/complete`, { method: "POST", body: outcome });
 
 /** Stores the poster (a JPEG still from the sandbox) captured at project `version`. */
-export async function savePosterMutationFn({ projectId, version, jpeg }: { projectId: string; version: number; jpeg: Blob }) {
-  const { data, error } = await authClient.$fetch<{ posterUrl: string; posterVersion: number }>(
-    apiUrl(`/projects/${encodeURIComponent(projectId)}/poster?version=${version}`),
+export async function savePosterMutationFn({ projectId, version, jpeg, pickedAt }: { projectId: string; version: number; jpeg: Blob; pickedAt?: number }) {
+  // pickedAt: the user chose this frame ("Use this frame as poster") — remembered for later re-captures.
+  const query = `version=${version}${pickedAt === undefined ? "" : `&t=${pickedAt.toFixed(3)}`}`;
+  const { data, error } = await authClient.$fetch<{ posterUrl: string; posterVersion: number; posterTimeSec: number | null }>(
+    apiUrl(`/projects/${encodeURIComponent(projectId)}/poster?${query}`),
     { method: "POST", body: jpeg, headers: { "content-type": "image/jpeg" } },
   );
   if (error) {

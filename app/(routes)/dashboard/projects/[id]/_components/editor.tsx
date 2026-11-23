@@ -86,7 +86,7 @@ export function Editor() {
     }
   }, []);
   useStudioSync(id, onRenderJob);
-  usePoster(id, state, captureHost);
+  const { setPosterFrame } = usePoster(id, state, captureHost);
   const now = useNow(1000);
 
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -209,6 +209,7 @@ export function Editor() {
             timeOffset={solo ? (sceneStarts(scenes).get(solo.id) ?? 0) : 0}
             videoDuration={totalDuration(scenes)}
             onSceneChange={solo ? undefined : onSceneChange}
+            onUseAsPoster={setPosterFrame}
             banner={
               solo ? (
                 <div className="flex w-full max-w-md items-center justify-between gap-2 rounded-full border bg-card py-1 pr-1 pl-4 text-sm shadow-sm">

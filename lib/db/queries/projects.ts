@@ -47,6 +47,7 @@ export async function getProject(userId: string, projectId: string): Promise<Pro
     storyboard: row.storyboard,
     version: row.version,
     posterVersion: row.posterVersion,
+    posterTimeSec: row.posterTimeSec,
     agentActivity: row.agentActivity,
     agentActivityAt: row.agentActivityAt?.toISOString() ?? null,
   };
@@ -61,11 +62,17 @@ export async function createProject(userId: string, input: CreateProjectInput) {
  * Saves the poster the studio captured at `version`. Not a content change: the version and the
  * project's place in Recents (updatedAt) stay as they are. Returns false if the project isn't the user's.
  */
-export async function savePoster(userId: string, projectId: string, posterUrl: string, version: number) {
-  const rows = await db
+export async function savePoster(userId: string, projectId: string, posterUrl: string, version: number, pickedAt?: number) {
+  const [row] = await db
     .update(project)
-    .set({ posterUrl, posterVersion: version, updatedAt: sql`${project.updatedAt}` })
+    .set({
+      posterUrl,
+      posterVersion: version,
+      // Only a frame the user picked changes the poster time; automatic re-captures keep it.
+      ...(pickedAt === undefined ? {} : { posterTimeSec: pickedAt }),
+      updatedAt: sql`${project.updatedAt}`,
+    })
     .where(and(eq(project.id, projectId), eq(project.userId, userId)))
-    .returning({ id: project.id });
-  return rows.length > 0;
+    .returning({ posterTimeSec: project.posterTimeSec });
+  return row ?? null;
 }
