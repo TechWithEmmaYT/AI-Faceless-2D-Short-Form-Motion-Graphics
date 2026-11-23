@@ -48,8 +48,7 @@ Love this project? Here's how you can support:
 ### Step 2: Get the Resources
 
 * [Prompts](https://docs.google.com/document/d/1dI0cR1CK4zFGtQcWZh61zE_oZLwl0Q5ntPMSR5iWOeo/edit?usp=sharing)
-* Designs (link coming soon)
-* Starter Kit — briefs & examples (link coming soon)
+* [Designs & Agent Starter Kit](https://drive.google.com/drive/folders/1WxoG5G8Zb8rl0Jz5xxedIxifjZB2zkqI?usp=sharing)
 
 
 ## License Information
