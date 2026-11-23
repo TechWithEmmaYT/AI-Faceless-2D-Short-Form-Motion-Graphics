@@ -7,6 +7,18 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  // Project posters (Recents, Projects) are stored on Cloudinary under motionstudio/<userId>/<projectId>/poster.
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        // .../image/upload/v<version>/motionstudio/... — `**` is only allowed at the end, so the version is `*`.
+        pathname: `/${process.env.CLOUDINARY_CLOUD_NAME ?? "*"}/image/upload/*/motionstudio/**`,
+        search: "",
+      },
+    ],
+  },
   // get_example reads the worked examples' stills from disk; ship them with the MCP route.
   outputFileTracingIncludes: {
     "/api/mcp": ["./lib/agent/examples/stills/**/*"],

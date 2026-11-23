@@ -14,6 +14,7 @@ The voice is the soundtrack. Everything else is optional, rare and quiet.
 1. The user's own files.
 2. Fish Audio's free sound library: search_sound_effects ("phone ring", "door knock") — each result has an audio_url.
 3. Openverse, no key: \`https://api.openverse.org/v1/audio/?q=<words>&license_type=commercial\`.
+Keep what you download in the workspace: \`~/motionstudio/<projectId>/sound/\` (\`music/\` for the bed). Note each sound you add in progress.md.
 Then add_sound: kind "sfx", the sceneId, a short name, source (where it came from), and either url (a public https file; it's copied into the project) or publicId (a file you uploaded with get_upload_target, kind "sound"). at_sec is scene seconds, where the picture shows the thing. trim_start / trim_end keep only the moment inside the file. volume 0.2–0.4 (default 0.3).
 To move it, change its volume or trim, or swap the file: update_sound with its sound id (get_project lists them). To drop it: remove_sound.
 Never generate_sound_effect without asking: it charges credits.

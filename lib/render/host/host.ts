@@ -5,7 +5,11 @@
  * watchdog: if agent code hangs the worker (an infinite loop), it is terminated and restarted, so the
  * studio never freezes. Bundled into public/render-host/index.html by scripts/build-render-host.mjs.
  */
+import { totalDuration } from "../timeline";
+import { FPS } from "../types";
+import { encodeVideo } from "./export";
 import type {
+  ExportAudio,
   FromHost,
   FromWorker,
   HostScene,
@@ -16,14 +20,21 @@ import type {
 declare const __WORKER_SOURCE__: string;
 
 const FRAME_TIMEOUT_MS = 1500;
-/** Watchdogs per job: render_frames and a still must finish in time; an export must keep making progress. */
-const JOB_TIMEOUT_MS = { capture: 25_000, still: 8_000, export: 20_000 } as const;
+/** Watchdogs per worker job: render_frames and a still must finish in time; so must each export frame. */
+const JOB_TIMEOUT_MS = { capture: 25_000, still: 8_000, export: 10_000 } as const;
 type JobKind = keyof typeof JOB_TIMEOUT_MS;
 const JOB_HANG: Record<JobKind, string> = {
   capture: "Rendering the frames took too long (possibly an infinite loop in a layer's code), so the renderer was restarted.",
   still: "Rendering the poster took too long (possibly an infinite loop in a layer's code), so the renderer was restarted.",
-  export: "The export stopped making progress (possibly an infinite loop in a layer's code), so the renderer was restarted.",
+  export: "A frame took too long to draw during the export (possibly an infinite loop in a layer's code), so the renderer was restarted.",
 };
+
+/** The export frame the worker is drawing right now (one at a time). */
+let exportFrame: {
+  id: string;
+  resolve: (frame: { bitmap: ImageBitmap; errors: { layer: string; message: string }[] }) => void;
+  reject: (error: Error) => void;
+} | null = null;
 
 let worker: Worker | null = null;
 let fonts: { sans: ArrayBuffer; mono: ArrayBuffer } | null = null;
@@ -64,7 +75,8 @@ function restart(reason: string) {
   if (frameTimer) clearTimeout(frameTimer);
   for (const [id, job] of jobs) {
     clearTimeout(job.timer);
-    toParent(job.kind === "capture" ? { type: "capture-failed", id, message: reason } : { type: "job-failed", id, message: reason });
+    if (job.kind === "export") exportFrame?.reject(new Error(reason)); // runExport reports it
+    else toParent(job.kind === "capture" ? { type: "capture-failed", id, message: reason } : { type: "job-failed", id, message: reason });
   }
   jobs.clear();
   toParent({ type: "restarted", reason });
@@ -111,19 +123,47 @@ function onWorker(msg: FromWorker) {
   } else if (msg.type === "initialized") {
     toParent({ type: "initialized" });
     pump();
-  } else if (msg.type === "export-progress") {
-    const job = jobs.get(msg.id);
-    if (job) watch(msg.id, job.kind); // still alive: restart its stall timer
-    toParent(msg);
-  } else if (msg.type === "export-done") {
+  } else if (msg.type === "export-frame-done") {
     endJob(msg.id);
-    toParent(msg, [msg.result.mp4]);
+    if (exportFrame?.id === msg.id) exportFrame.resolve({ bitmap: msg.bitmap, errors: msg.errors });
+    else msg.bitmap.close();
+  } else if (msg.type === "job-failed" && exportFrame?.id === msg.id) {
+    endJob(msg.id);
+    exportFrame.reject(new Error(msg.message));
   } else if (msg.type === "still-done") {
     endJob(msg.id);
     toParent(msg, [msg.jpeg]);
   } else if (msg.type === "captured" || msg.type === "capture-failed" || msg.type === "job-failed") {
     endJob(msg.id);
     toParent(msg);
+  }
+}
+
+/**
+ * Exports the whole video: the worker draws each frame (agent code stays there), this page encodes
+ * and muxes it — WebCodecs isn't available in the worker (see export.ts).
+ */
+async function runExport(id: string, audio: ExportAudio | null) {
+  try {
+    if (!worker || !data) throw new Error("The renderer isn't ready yet.");
+    const frames = Math.round(totalDuration(data.scenes) * FPS);
+    const result = await encodeVideo({
+      frames,
+      audio,
+      renderFrame: (i) =>
+        new Promise((resolve, reject) => {
+          exportFrame = { id, resolve, reject };
+          watch(id, "export");
+          toWorker({ type: "export-frame", id, i });
+        }),
+      onProgress: (frame, total) => toParent({ type: "export-progress", id, frame, frames: total }),
+    });
+    toParent({ type: "export-done", id, result }, [result.mp4]);
+  } catch (error) {
+    toParent({ type: "job-failed", id, message: error instanceof Error ? error.message : String(error) });
+  } finally {
+    exportFrame = null;
+    endJob(id);
   }
 }
 
@@ -140,7 +180,7 @@ function endJob(id: string) {
 }
 
 /** Starts a worker job under a watchdog, or fails it at once if the renderer isn't up. */
-function startJob(message: Extract<ToWorker, { type: JobKind }>, transfer: Transferable[] = []) {
+function startJob(message: Extract<ToWorker, { type: "capture" | "still" }>, transfer: Transferable[] = []) {
   if (!worker) {
     const reason = "The renderer isn't ready yet.";
     return toParent(message.type === "capture" ? { type: "capture-failed", id: message.id, message: reason } : { type: "job-failed", id: message.id, message: reason });
@@ -169,7 +209,7 @@ window.addEventListener("message", (event: MessageEvent<ToHost>) => {
   } else if (msg.type === "still") {
     startJob({ type: "still", id: msg.id, t: msg.t, longEdge: msg.longEdge });
   } else if (msg.type === "export") {
-    startJob({ type: "export", id: msg.id, audio: msg.audio }, msg.audio ? msg.audio.channels.map((c) => c.buffer as ArrayBuffer) : []);
+    void runExport(msg.id, msg.audio);
   }
 });
 

@@ -22,6 +22,7 @@ import {
   type ProjectDetail,
   type ProjectState,
 } from "@/lib/api";
+import { workspacePath } from "@/lib/agent/guide/workspace";
 import { formatRelative } from "@/lib/styles";
 import { scriptLines } from "@/lib/validation/script";
 
@@ -53,6 +54,7 @@ function handoffPrompt(project: ProjectDetail, sceneCount: number) {
     `The user's ${project.inputMode}:`,
     project.brief,
     `Call agent_md first and follow its loop. ${status}`,
+    `Work in ${workspacePath(project.id)}/ — create it if it's missing; if it has a progress.md, read it first and pick up where it stops.`,
   ].join("\n");
 }
 

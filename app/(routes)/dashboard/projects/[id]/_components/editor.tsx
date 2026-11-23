@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeftIcon, BoxesIcon, CodeXmlIcon, FileQuestionIcon, FilmIcon, MicIcon, UploadIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, BoxesIcon, CodeXmlIcon, FileQuestionIcon, FilmIcon, MicIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,14 +12,15 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RenderHostFrame, hostSceneData, type RenderHostHandle } from "@/components/studio/render-host";
 import { ApiError, completeRenderJobFn, getProjectStateQueryFn, projectKeys, setSelectionMutationFn, type RenderJob } from "@/lib/api";
 import { sceneStarts, totalDuration } from "@/lib/render/timeline";
+import { usePoster } from "@/lib/studio/use-poster";
 import { useStudioSync } from "@/lib/studio/use-studio-sync";
 
 import { ClaudeTab } from "./claude-tab";
 import { ElementsTab } from "./elements-tab";
+import { ExportButton } from "./export-dialog";
 import { PreviewPlayer, type PlayerHandle } from "./preview-player";
 import { ScenesTab } from "./scenes-tab";
 import { VoiceTab } from "./voice-tab";
@@ -85,6 +86,7 @@ export function Editor() {
     }
   }, []);
   useStudioSync(id, onRenderJob);
+  usePoster(id, state, captureHost);
   const now = useNow(1000);
 
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -152,15 +154,7 @@ export function Editor() {
           <Badge variant="outline" className="hidden h-9 rounded-lg px-3 text-sm @2xl:inline-flex">
             9:16 Portrait
           </Badge>
-          <Tooltip>
-            <TooltipTrigger render={<span tabIndex={0} />}>
-              <Button size="lg" disabled className="h-10 px-4">
-                <UploadIcon data-icon="inline-start" />
-                Export
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>MP4 export arrives with the export phase</TooltipContent>
-          </Tooltip>
+          <ExportButton state={state} hostData={captureData} onStart={() => player.current?.pause()} />
         </div>
       </header>
 

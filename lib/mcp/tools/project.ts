@@ -3,6 +3,7 @@ import "server-only";
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
+import { workspacePath } from "@/lib/agent/guide/workspace";
 import { getProjectState } from "@/lib/db/queries/scenes";
 import {
   StudioError,
@@ -125,6 +126,7 @@ export function registerProjectTools(server: McpServer, userId: string) {
             version: project.version,
             durationSec: totalDuration(scenes),
             selectedSceneId: raw.selectedSceneId,
+            workspace: `${workspacePath(project.id)}/`,
           },
           script: project.script
             ? {
@@ -151,6 +153,7 @@ export function registerProjectTools(server: McpServer, userId: string) {
         const md = [
           `# ${project.title} (projectId: ${project.id})`,
           `Style **${project.motionStyle}** · target about ${project.targetSeconds}s · 9:16 · version ${project.version} · ${scenes.length} scenes, ${s(totalDuration(scenes))}`,
+          `Workspace: \`${workspacePath(project.id)}/\` on the user's machine — create it if missing; read its progress.md first if it exists.`,
           ``,
           `## The user's ${project.inputMode}`,
           project.brief,

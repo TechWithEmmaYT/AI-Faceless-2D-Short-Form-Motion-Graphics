@@ -70,12 +70,14 @@ export type ToWorker =
   | { type: "frame"; seq: number; t: number }
   | { type: "capture"; id: string; spec: RenderRequestSpec }
   | { type: "still"; id: string; t: number; longEdge: number }
-  | { type: "export"; id: string; audio: ExportAudio | null };
+  /** Draw frame i of the full video (t = i / 30) at 1080×1920 for an export. */
+  | { type: "export-frame"; id: string; i: number };
 
 /** worker → host */
 export type FromWorker =
   | { type: "initialized" }
   | { type: "drawn"; seq: number; errors: { layer: string; message: string }[] }
+  | { type: "export-frame-done"; id: string; i: number; bitmap: ImageBitmap; errors: { layer: string; message: string }[] }
   | JobMessages;
 
 export type { RenderCheck };

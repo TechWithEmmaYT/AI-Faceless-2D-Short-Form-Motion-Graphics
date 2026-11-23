@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from "react";
 
 import type { RenderRequestResult, RenderRequestSpec } from "@/lib/db/app-schema";
-import type { FromHost, HostScene, ToHost } from "@/lib/render/host/protocol";
+import type { ExportAudio, ExportResult, FromHost, HostScene, ToHost } from "@/lib/render/host/protocol";
 import { cn } from "@/lib/utils";
 
 export type RenderHostHandle = {
@@ -11,7 +11,20 @@ export type RenderHostHandle = {
   draw: (t: number) => void;
   /** Render frames for render_frames and run the checks, inside the sandbox. */
   capture: (spec: RenderRequestSpec) => Promise<RenderRequestResult>;
+  /** One frame of the full video at t as a JPEG (the poster). */
+  still: (t: number, longEdge: number) => Promise<Blob>;
+  /** The whole video as an MP4 (1080×1920, 30 fps), encoded inside the sandbox. Waits for the host to start. */
+  exportVideo: (audio: ExportAudio | null, onProgress: (frame: number, frames: number) => void) => Promise<ExportResult>;
 };
+
+type Waiter = {
+  resolve: (value: never) => void;
+  reject: (error: Error) => void;
+  onProgress?: (frame: number, frames: number) => void;
+};
+
+/** How long a host may take to start before a job that waits for it gives up. */
+const READY_TIMEOUT_MS = 15_000;
 
 /** The two fonts the sandbox uses, fetched once per page (it has no network of its own). */
 let fontsPromise: Promise<{ sans: ArrayBuffer; mono: ArrayBuffer }> | null = null;
@@ -50,7 +63,8 @@ export function RenderHostFrame({
   const ready = useRef(false);
   const lastT = useRef(0);
   const dataRef = useRef(data);
-  const pending = useRef(new Map<string, { resolve: (r: RenderRequestResult) => void; reject: (e: Error) => void }>());
+  const pending = useRef(new Map<string, Waiter>());
+  const readyWaiters = useRef(new Set<() => void>());
   const callbacks = useRef({ onLayerErrors, onRestarted });
   useEffect(() => {
     callbacks.current = { onLayerErrors, onRestarted };
@@ -70,11 +84,19 @@ export function RenderHostFrame({
         ready.current = true;
         send({ type: "load", data: dataRef.current });
         send({ type: "frame", t: lastT.current });
-      } else if (msg.type === "captured" || msg.type === "capture-failed") {
+        for (const wake of readyWaiters.current) wake();
+        readyWaiters.current.clear();
+      } else if (msg.type === "export-progress") {
+        pending.current.get(msg.id)?.onProgress?.(msg.frame, msg.frames);
+      } else if (msg.type === "captured" || msg.type === "still-done" || msg.type === "export-done") {
         const waiter = pending.current.get(msg.id);
         pending.current.delete(msg.id);
-        if (msg.type === "captured") waiter?.resolve(msg.result);
-        else waiter?.reject(new Error(msg.message));
+        const value = msg.type === "captured" ? msg.result : msg.type === "export-done" ? msg.result : new Blob([msg.jpeg], { type: "image/jpeg" });
+        waiter?.resolve(value as never);
+      } else if (msg.type === "capture-failed" || msg.type === "job-failed") {
+        const waiter = pending.current.get(msg.id);
+        pending.current.delete(msg.id);
+        waiter?.reject(new Error(msg.message));
       } else if (msg.type === "layer-errors") {
         callbacks.current.onLayerErrors?.(msg.errors);
       } else if (msg.type === "restarted") {
@@ -94,27 +116,57 @@ export function RenderHostFrame({
     }
   }, [data, send]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
+  // Fail anything still waiting if this host goes away (e.g. an export is cancelled by unmounting it).
+  useEffect(() => {
+    const waiting = pending.current;
+    return () => {
+      for (const waiter of waiting.values()) waiter.reject(new Error("cancelled"));
+      waiting.clear();
+    };
+  }, []);
+
+  useImperativeHandle(ref, () => {
+    /** Sends a job and settles when the host answers (or after timeoutMs, if given). */
+    function job<T>(message: (id: string) => ToHost, timeoutMs: number | null, onProgress?: Waiter["onProgress"], transfer: Transferable[] = []) {
+      return new Promise<T>((resolve, reject) => {
+        const id = crypto.randomUUID();
+        pending.current.set(id, { resolve: resolve as Waiter["resolve"], reject, onProgress });
+        frame.current?.contentWindow?.postMessage(message(id), "*", transfer);
+        if (timeoutMs !== null) {
+          setTimeout(() => {
+            if (pending.current.delete(id)) reject(new Error("Rendering timed out in the studio."));
+          }, timeoutMs);
+        }
+      });
+    }
+    function whenReady() {
+      if (ready.current) return Promise.resolve();
+      return new Promise<void>((resolve, reject) => {
+        const wake = () => (clearTimeout(timer), resolve());
+        const timer = setTimeout(() => (readyWaiters.current.delete(wake), reject(new Error("The renderer didn't start. Reload the page and try again."))), READY_TIMEOUT_MS);
+        readyWaiters.current.add(wake);
+      });
+    }
+    return {
       draw(t) {
         lastT.current = t;
         if (ready.current) send({ type: "frame", t });
       },
       capture(spec) {
-        return new Promise<RenderRequestResult>((resolve, reject) => {
-          if (!ready.current) return reject(new Error("The renderer is still starting — try again in a moment."));
-          const id = crypto.randomUUID();
-          pending.current.set(id, { resolve, reject });
-          send({ type: "capture", id, spec });
-          setTimeout(() => {
-            if (pending.current.delete(id)) reject(new Error("Rendering timed out in the studio."));
-          }, 30_000);
-        });
+        if (!ready.current) return Promise.reject(new Error("The renderer is still starting — try again in a moment."));
+        return job<RenderRequestResult>((id) => ({ type: "capture", id, spec }), 30_000);
       },
-    }),
-    [send],
-  );
+      async still(t, longEdge) {
+        await whenReady();
+        return job<Blob>((id) => ({ type: "still", id, t, longEdge }), 15_000);
+      },
+      async exportVideo(audio, onProgress) {
+        await whenReady();
+        // No overall timeout: the host's stall watchdog fails the job if frames stop coming.
+        return job<ExportResult>((id) => ({ type: "export", id, audio }), null, onProgress, audio ? audio.channels.map((c) => c.buffer as ArrayBuffer) : []);
+      },
+    };
+  }, [send]);
 
   return (
     <iframe

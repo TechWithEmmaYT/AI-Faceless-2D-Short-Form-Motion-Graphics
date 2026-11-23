@@ -1,11 +1,35 @@
+"use client";
+
 import { ClockIcon, PlayIcon, PlusIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectSummary } from "@/lib/api";
+import { cloudinaryLoader, isCloudinaryImage } from "@/lib/cloudinary-loader";
 import { STYLE_ART, formatDuration, formatRelative } from "@/lib/styles";
+
+const TILE_SIZES = "(min-width: 1024px) 200px, (min-width: 640px) 30vw, 45vw";
+const TILE_IMAGE = "object-cover transition-transform duration-300 group-hover/tile:scale-[1.04]";
+
+/** The project's poster, straight from Cloudinary's CDN (resized there, never proxied through our server). */
+function Poster({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <Image
+      src={src}
+      loader={isCloudinaryImage(src) ? cloudinaryLoader : undefined}
+      alt=""
+      fill
+      sizes={TILE_SIZES}
+      onLoad={() => setLoaded(true)}
+      className={cn(TILE_IMAGE, "transition-[opacity,transform]", loaded ? "opacity-100" : "opacity-0")}
+    />
+  );
+}
 
 /**
  * A project in the Recents row / Projects grid (DESIGN.md "Recents tiles"): thumbnail, frosted
@@ -20,13 +44,9 @@ export function ProjectTile({ project }: { project: ProjectSummary }) {
       href={`/dashboard/projects/${project.id}`}
       className="group/tile relative block aspect-4/5 overflow-hidden rounded-xl bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <Image
-        src={project.posterUrl ?? art.image}
-        alt=""
-        fill
-        sizes="(min-width: 1024px) 200px, (min-width: 640px) 30vw, 45vw"
-        className="object-cover transition-transform duration-300 group-hover/tile:scale-[1.04]"
-      />
+      <Image src={art.image} alt="" fill sizes={TILE_SIZES} className={TILE_IMAGE} />
+      {/* The poster fades in over the style art once it arrives: a slow CDN never leaves a blank tile. */}
+      {project.posterUrl ? <Poster key={project.posterUrl} src={project.posterUrl} /> : null}
       <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
         <Badge variant="overlay">
           {hasVideo ? <PlayIcon data-icon="inline-start" className="fill-current" /> : null}

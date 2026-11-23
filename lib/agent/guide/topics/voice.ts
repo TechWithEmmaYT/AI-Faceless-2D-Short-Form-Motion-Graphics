@@ -9,13 +9,14 @@ export const voiceTopic = `# The voice
 - Pick one voice (search_voices) and say which. The same voice and the same settings for every line.
 
 ## The steps
-1. **One clip per line**, in order, with text_to_speech — strip the \`*\` marks. Generate them one after another (never more than 3 at once, or Fish answers 429). Save each on the user's machine: \`vo/<scene>-<nn>.mp3\`.
-2. **Measure each clip** (ffprobe, or a metadata reader). Free and exact.
+1. **One clip per line**, in order, with text_to_speech — strip the \`*\` marks. Generate them one after another (never more than 3 at once, or Fish answers 429). Save each in the project's workspace: \`~/motionstudio/<projectId>/vo/scene-01-01.mp3\` (scene, then line). **Look in \`vo/\` first**: a clip already there for a line whose text hasn't changed is reused, never generated again.
+2. **Measure each clip** (ffprobe, or a metadata reader). Free and exact. Keep the lengths in \`vo/durations.txt\`.
 3. **Lay out the times**: each line starts where the last one ended plus a breath — 0.25 s inside a shot, 0.5 s at the end of a shot. Keep a shot's lead-in.
 4. **Join each scene's clips** into one file with those breaths (ffmpeg concat with short silences): \`vo/scene-01.mp3\`.
 5. **Upload it**: get_upload_target({ projectId, kind: "voice", name: "scene-01" }) returns a curl command — run it with \`file=@vo/scene-01.mp3\`. (A scene that is a single Fish clip can skip this: pass its URL straight to save_generated_audio.)
 6. **save_generated_audio once per scene**: { projectId, sceneId, publicId (or url), voiceName, lines: [{ line, start, end }] } — each line's start and end inside the joined file. The scene's length becomes the last line's end + 0.5 s. 8–12 saves for a short, never one per line.
 7. Build the scenes on those times: each caption layer starts and ends on its line's times.
+8. Write the voice (name, id, settings) and each saved scene into progress.md, so a later session keeps the same voice.
 
 ## Cost
 Fish bills by the text, not by the number of calls: one clip per line costs the same as one long clip. What costs more is the **same text twice** — generate each line once and keep it. To fix one line, regenerate only that line, re-join its scene and save that scene again.

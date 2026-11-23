@@ -65,7 +65,7 @@ app/
   api/projects/[id]/poster/route.ts
   api/render-requests/claim/route.ts
   api/render-requests/[rid]/complete/route.ts
-  api/uploads/sign/route.ts           signed upload for posters (studio)
+  (no uploads/sign route: the poster route uploads server-side, see Phase 8)
 proxy.ts                              protects (studio) routes (Next 16 proxy)
 public/render-host/index.html         sandboxed render host (+ host.js bundle)
 lib/
@@ -422,13 +422,46 @@ Verified: an empty demo scene renders 0 non-black pixels.
 
 ### Phase 8 — Export and poster
 
+**Progress (2026-11-23): built and verified end to end in Chrome.**
+
+- **Export:**
+  - **Where it lives:** the Export button and its dialog are in `_components/export-dialog.tsx`. The dialog mounts its own hidden render host while it is open. Cancel or retry remounts that host, which stops everything in it.
+  - **Audio:** `lib/studio/audio-mix.ts` renders the soundtrack in the page, offline at 48 kHz stereo. It uses the same timing as the preview, and `lib/studio/envelope.ts` holds the fades both share. Each file is fetched up to 3 times.
+  - **Change from step 3: encoding runs in the host page, not the worker.** WebCodecs exists only in secure contexts, and a blob worker started by the opaque-origin sandbox page is not one: `VideoEncoder` is undefined there, as measured.
+    - The worker draws frame *i* with `render()` at 1080×1920 and transfers it as an `ImageBitmap`. Agent code still runs only in the worker.
+    - The host page encodes and muxes with Mediabunny 1.65.2 (`lib/render/host/export.ts`): H.264 High with a key frame every 2 s, plus AAC (Opus if the browser can't encode AAC).
+    - Frames are requested one at a time, each under a 10 s watchdog, so a hung layer still restarts the renderer and fails the export with a message.
+  - **Verified** on the 13.5 s demo with a music bed:
+    - the MP4 is H.264 High, 1080×1920, 30 fps, 405 frames, so the length matches to the frame;
+    - audio is AAC LC, 48 kHz stereo, and not silent (mean −42.7 dB with the music at volume 0.1);
+    - the file is 1.0 MB, and it took about 50 s, most of it fetching the 9 MB music file;
+    - layer errors and a non-AAC fallback are listed in the dialog as warnings.
+  - **Browser support:** the button is disabled, with a "Use desktop Chrome or Edge" tooltip, outside desktop Chromium.
+- **Poster:**
+  - **Change from step 5: no `/api/uploads/sign`.** The capture host renders the still (new `still` job, 540×960 JPEG) and the page POSTs the bytes to `/api/projects/[id]/poster?version=N`. The server checks ownership, then uploads to `motionstudio/<userId>/<projectId>/poster/poster`. The Cloudinary secret never leaves the server, and there are no browser-to-Cloudinary CORS rules to manage.
+  - **`project.posterVersion`** (migration `0008`) records the version the poster shows. `lib/studio/use-poster.ts` re-captures 10 s after the version stops changing. Saving the poster changes neither `version` nor `updatedAt`.
+  - **Verified:** the poster was saved to Cloudinary, and `posterVersion` caught up with `version`.
+  - **Recents:** posters load straight from Cloudinary's CDN through a `next/image` loader (`lib/cloudinary-loader.ts`: `w_<width>,c_limit,f_auto,q_auto`).
+    - Nothing is proxied through our server. Next's optimizer timed out ("upstream image response timed out") on a network where Cloudinary took 19–25 s to respond.
+    - The tile shows the style art first and fades the poster in once it arrives.
+    - `images.remotePatterns` is still there as a fallback, limited to `.../image/upload/*/motionstudio/**` with no query strings.
+  - **When it's taken:** independent of playback. The hidden capture host renders t = 1 s of the full video, whatever the preview is doing.
+- **Guide:** `agent_md` step 10 tells the agent that the user exports from the studio (guide `2026-11-23.1`).
+- **Agent workspace (guide `2026-11-23.2`):** each project has a folder on the user's machine, `~/motionstudio/<projectId>/`.
+  - **Layout** (`lib/agent/guide/workspace.ts`): `progress.md`, `vo/`, `sound/`, `music/`, `scenes/` and `elements/`.
+  - **Where the agent is told:** in the `agent_md` loop (step 1 opens the folder; progress.md is updated after every step), in the MCP instructions sent on connect, in `get_project` (markdown and json), and in the handoff prompt.
+  - **Why:** a new session or a new agent reads progress.md and continues, and reuses voice clips already in `vo/` instead of paying Fish Audio for them again. get_project stays the record of what's saved.
+- **Not yet measured:**
+  - the 60 s target (under 2 minutes), and a tab hidden for the whole export;
+  - frame-by-frame comparison with `render_frames` output.
+
 1. **Export dialog:** shows the length, resolution and size estimate, a progress bar, and a note that export keeps running in a background tab. On unsupported browsers, the button is disabled with a "Use desktop Chrome or Edge" tooltip.
 2. **Audio:** render the full mix in the page with `OfflineAudioContext` (48 kHz stereo), using the same scheduling as Phase 7, then transfer the `AudioBuffer` channels to the host.
 3. **Video:** in the host's export worker, for each frame `i`, call `render(sceneAt(i/30), localT)` on an `OffscreenCanvas` of 1080×1920, then `new VideoFrame(canvas, {timestamp})`, then `VideoEncoder.encode` (keyframe every 2 s), with backpressure on `encodeQueueSize`. Encode the audio with `AudioEncoder`, mux with Mediabunny, and send back a `Blob`; the page downloads it as `<title>.mp4`.
 4. **Cancel and failure:** a cancel button; an encoder error shows a message, and a retry restarts from the beginning.
 5. **Poster:**
    - when the version has been the same for 10 s, the page asks the host for the frame at `t=1` (JPEG, 540×960)
-   - it gets a signed upload from `/api/uploads/sign`, uploads to Cloudinary `motionstudio/<userId>/<projectId>/poster`, and saves `posterUrl` and `durationSec` through `/api/projects/[id]/poster`
+   - it POSTs the JPEG to `/api/projects/[id]/poster?version=N`; the server uploads it to Cloudinary `motionstudio/<userId>/<projectId>/poster` and saves `posterUrl` and `posterVersion` (superseded the signed-upload design, see the progress note)
    - this also runs after a successful export
 
 **Accept when:**

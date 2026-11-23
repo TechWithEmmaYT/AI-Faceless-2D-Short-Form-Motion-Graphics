@@ -4,24 +4,13 @@ import { useEffect, useRef } from "react";
 
 import type { SoundData, VoiceClipData } from "@/lib/api";
 import { sceneAt } from "@/lib/render/timeline";
+import { envelope } from "@/lib/studio/envelope";
 import type { Scene } from "@/lib/render/types";
 
 /** How far audio may drift from the picture before it's re-synced (seconds). */
 const MAX_DRIFT = 0.2;
 
 type Want = { time: number; volume: number };
-
-/** 0→1 over the first `fadeIn` seconds, 1→0 over the last `fadeOut` seconds of `length`. */
-function envelope(
-  local: number,
-  length: number,
-  fadeIn: number,
-  fadeOut: number,
-) {
-  const inK = fadeIn > 0 ? Math.min(1, local / fadeIn) : 1;
-  const outK = fadeOut > 0 ? Math.min(1, (length - local) / fadeOut) : 1;
-  return Math.max(0, Math.min(inK, outK));
-}
 
 /** Brings one element in line with what should be heard now: silent, or at `want.time` and volume. */
 function syncAudio(audio: HTMLAudioElement, want: Want | undefined) {

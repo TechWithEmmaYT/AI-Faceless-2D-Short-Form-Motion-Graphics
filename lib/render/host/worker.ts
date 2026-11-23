@@ -26,8 +26,7 @@ import {
   type SavedElement,
 } from "../render";
 import { ordered } from "../timeline";
-import { CANVAS_H, CANVAS_W, type Layer, type Scene } from "../types";
-import { exportVideo } from "./export";
+import { CANVAS_H, CANVAS_W, FPS, type Layer, type Scene } from "../types";
 import type { FromWorker, HostScene, ToWorker } from "./protocol";
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -108,20 +107,23 @@ self.onmessage = async (event: MessageEvent<ToWorker>) => {
     } catch (error) {
       post({ type: "job-failed", id: msg.id, message: error instanceof Error ? error.message : String(error) });
     }
-  } else if (msg.type === "export") {
+  } else if (msg.type === "export-frame") {
     try {
-      const result = await exportVideo({
-        scenes: data.scenes,
-        audio: msg.audio,
-        env,
-        onProgress: (frame, frames) => post({ type: "export-progress", id: msg.id, frame, frames }),
-      });
-      self.postMessage({ type: "export-done", id: msg.id, result } satisfies FromWorker, [result.mp4]);
+      exportCanvas ??= new OffscreenCanvas(CANVAS_W, CANVAS_H);
+      const ctx = exportCanvas.getContext("2d", { alpha: false }) as unknown as CanvasRenderingContext2D;
+      const errors: { layer: string; message: string }[] = [];
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      render(ctx, data.scenes, msg.i / FPS, env({ onError: (layer, message) => errors.push({ layer: layer.name, message }) }));
+      const bitmap = exportCanvas.transferToImageBitmap();
+      self.postMessage({ type: "export-frame-done", id: msg.id, i: msg.i, bitmap, errors } satisfies FromWorker, [bitmap]);
     } catch (error) {
       post({ type: "job-failed", id: msg.id, message: error instanceof Error ? error.message : String(error) });
     }
   }
 };
+
+/** The full-size canvas export frames are drawn on (made on the first export frame). */
+let exportCanvas: OffscreenCanvas | null = null;
 
 /** One frame of the full video at t (the poster), as JPEG bytes. */
 async function still(t: number, longEdge: number): Promise<ArrayBuffer> {
